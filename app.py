@@ -4,9 +4,8 @@ import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
-from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler  
 from sklearn.neighbors import KNeighborsClassifier
 import plotly.express as px
@@ -17,25 +16,22 @@ def loadData():
 	df = pd.read_csv("avocado.csv").replace({"conventional": 0, "organic": 1})
 	return df
 
-# Basic preprocessing required for all the models.  
+# Basic preprocessing 
 def preprocessing(df):
 	# Assign X and y
 	X = df.iloc[:, 2:-3].values
 	y = df.iloc[:, -3].values
 
-	# X and y has Categorical data hence needs Encoding
-	le = LabelEncoder()
-	y = le.fit_transform(y.flatten())
-
+	
 	# 1. Splitting X,y into Train & Test
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=0)
-	return X_train, X_test, y_train, y_test, le
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=5)
+	return X_train, X_test, y_train, y_test
 
 
 # Training Decission Tree for Classification
 @st.cache(suppress_st_warning=True)
 def decisionTree(X_train, X_test, y_train, y_test):
-	# Train the model
+	# Initiate the Classifier and fit the model.
 	tree = DecisionTreeClassifier(max_leaf_nodes=3, random_state=0)
 	tree.fit(X_train, y_train)
 	y_pred = tree.predict(X_test)
@@ -44,16 +40,13 @@ def decisionTree(X_train, X_test, y_train, y_test):
 
 	return score, report, tree
 
-# Training Neural Network for Classification.
+# Training Random Forest for Classification.
 @st.cache(suppress_st_warning=True)
-def neuralNet(X_train, X_test, y_train, y_test):
-	# Scalling the data before feeding it to the Neural Network.
-	scaler = StandardScaler()  
-	scaler.fit(X_train)  
-	X_train = scaler.transform(X_train)  
-	X_test = scaler.transform(X_test)
-	# Instantiate the Classifier and fit the model.
-	clf = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+def Random_Forest(X_train, X_test, y_train, y_test):
+	 
+	
+	# Initiate the Classifier and fit the model.
+	clf = RandomForestClassifier(n_estimators=40,random_state=0)
 	clf.fit(X_train, y_train)
 	y_pred = clf.predict(X_test)
 	score1 = metrics.accuracy_score(y_test, y_pred) * 100
@@ -73,32 +66,34 @@ def Knn_Classifier(X_train, X_test, y_train, y_test):
 	return score, report, clf
 
 
-# Accepting user data for predicting its Member Type
-def accept_user_data(): 
-	AveragePrice = st.text_input("What is the  AveragePrice ")
-	total  = st.text_input("What is the Total Volume")
-	sku4046 = st.text_input("How many sku4046 sales? ") 
-	user_prediction_data = np.array([AveragePrice,total,sku4046,sku4225,sku4770,smll_bags,large_bags,xlarge_bags]).reshape(1,-1)
-	return user_prediction_data
+# Accepting user data for predicting its Class
+def accept_user_data():
+    AveragePrice = st.text_input("What is the  AveragePrice ")
+    total  = st.text_input("What is the Total Volume")
+    sku4046 = st.text_input("How many sku4046 sales? ")
+    sku4225 = st.text_input("How many sku4225 sales? ")
+    sku4770 = st.text_input("How many sku4770 sales? ")
+    Total_Bags = st.text_input("How many total Bags sales? ")
+    smll_bags = st.text_input("How many smll_bags sales? ")
+    large_bags = st.text_input("How many large_bags sales? ")
+    xlarge_bags = st.text_input("How many xlarge_bags sales? ")
+    user_prediction_data = np.array([AveragePrice,total,sku4046,sku4225,sku4770,Total_Bags,smll_bags,large_bags,xlarge_bags]).reshape(1,-1)
+    return user_prediction_data
 
-
-# Loading the data for showing visualization of vehicals starting from various start locations on the world map.
 
 
 def main():
 	st.title("Classification of Avocado Type with Streamlit!")
 	data = loadData()
-	X_train, X_test, y_train, y_test, le = preprocessing(data)
+	X_train, X_test, y_train, y_test = preprocessing(data)
 
 	# Insert Check-Box to show the snippet of the data.
-	if st.checkbox('Show Raw Data'):
-		st.subheader("Showing raw data---->>>")	
-		st.write(data.head())
-
-
+	if st.checkbox('Wanna see the data?'):
+		st.subheader("Gud here we are")
+		st.write(data.head(30))
 	# ML Section
 	choose_model = st.sidebar.selectbox("Choose the ML Model",
-		["NONE","Decision Tree", "Neural Network", "K-Nearest Neighbours"])
+		["NONE","Decision Tree", "Random_Forest", "K-Nearest Neighbours"])
 
 	if(choose_model == "Decision Tree"):
 		score, report, tree = decisionTree(X_train, X_test, y_train, y_test)
@@ -108,28 +103,28 @@ def main():
 		st.write(report)
 
 		try:
-			if(st.checkbox("Want to predict on your own Input? It is recommended to have a look at dataset to enter values in below tabs than just typing in random values")):
+			if(st.checkbox("Want to predict on your own Input?")):
 				user_prediction_data = accept_user_data() 		
-				pred = tree.predict(user_prediction_data)
-				st.write("The Predicted Class is: ", le.inverse_transform(pred)) # Inverse transform to get the original dependent value. 
+				pred = tree.predict_proba(user_prediction_data)
+				st.write("The Predicted Class is: ", pred)
 		except:
 			pass
 
-	elif(choose_model == "Neural Network"):
-		score, report, clf = neuralNet(X_train, X_test, y_train, y_test)
-		st.text("Accuracy of Neural Network model is: ")
+	elif(choose_model == "Random_Forest"):
+		score, report, clf = Random_Forest(X_train, X_test, y_train, y_test)
+		st.text("Accuracy of Random_Forest model is: ")
 		st.write(score,"%")
-		st.text("Report of Neural Network model is: ")
+		st.text("Report of Random_Forest model is: ")
 		st.write(report)
 
 		try:
-			if(st.checkbox("Want to predict on your own Input? It is recommended to have a look at dataset to enter values in below tabs than just typing in random values")):
+			if(st.checkbox("Want to predict on your own Input?")):
 				user_prediction_data = accept_user_data()
-				scaler = StandardScaler()  
-				scaler.fit(X_train)  
-				user_prediction_data = scaler.transform(user_prediction_data)	
-				pred = clf.predict(user_prediction_data)
-				st.write("The Predicted Class is: ", le.inverse_transform(pred)) # Inverse transform to get the original dependent value. 
+				
+				
+				
+				pred = clf.predict_proba(user_prediction_data)
+				st.write("The Predicted Class is: ", pred)
 		except:
 			pass
 
@@ -141,20 +136,15 @@ def main():
 		st.write(report)
 
 		try:
-			if(st.checkbox("Want to predict on your own Input? It is recommended to have a look at dataset to enter values in below tabs than just typing in random values")):
+			if(st.checkbox("Want to predict on your own Input?")):
 				user_prediction_data = accept_user_data() 		
 				pred = clf.predict(user_prediction_data)
-				st.write("The Predicted Class is: ", le.inverse_transform(pred)) # Inverse transform to get the original dependent value. 
+				st.write("The Predicted Class is: ", pred)
 		except:
 			pass
 	
 	
 
-
-	# Visualization Section
-
-	# plt.hist(data['Member type'], bins=5)
-	# st.pyplot()
 
 if __name__ == "__main__":
 	main()
